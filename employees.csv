@@ -1,0 +1,21 @@
+employee_id,name,department,salary,hire_date,email,manager_id
+1,Alice Johnson,Engineering,95000,2021-03-15,alice@company.com,5
+2,Bob Smith,Marketing,72000,2020-07-01,bob@company.com,6
+3,Carol White,Engineering,88000,2019-11-20,carol@company.com,5
+4,David Lee,Sales,65000,2022-01-10,david@company.com,7
+5,Emma Davis,Engineering,120000,2018-06-01,emma@company.com,
+6,Frank Brown,Marketing,110000,2017-09-15,frank@company.com,
+7,Grace Kim,Sales,105000,2019-04-22,grace@company.com,
+8,Henry Wilson,HR,68000,2021-08-30,henry@company.com,9
+9,Iris Chen,HR,98000,2016-12-01,iris@company.com,
+10,James Taylor,Finance,87000,2020-03-18,james@company.com,11
+11,Karen Moore,Finance,115000,2015-05-10,karen@company.com,
+12,Leo Martin,Engineering,91000,2022-06-14,leo@company.com,5
+13,Mia Thompson,Marketing,69000,2023-01-05,mia@company.com,6
+14,Noah Garcia,Sales,63000,2023-03-20,noah@company.com,7
+15,Olivia Martinez,Engineering,97000,2021-09-11,olivia@company.com,5
+16,Paul Anderson,HR,,,paul@company.com,9
+17,Quinn Jackson,Finance,82000,2022-11-01,james@company.com,11
+18,Rachel Harris,Sales,65000,2022-01-10,rachel@company.com,7
+19,Sam Robinson,Engineering,88000,2019-11-20,carol@company.com,5
+20,Tina Clark,Marketing,72000,2020-07-01,bob@company.com,6

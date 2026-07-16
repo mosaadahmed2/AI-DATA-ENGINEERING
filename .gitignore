@@ -1,0 +1,25 @@
+cd /Users/mosaadahmed/ai-data-engineering
+
+cat > .gitignore << 'EOF'
+# Environment
+.env
+
+# Database & index files
+*.db
+*.bin
+*.json
+faiss_index.bin
+chunks.json
+db_schema.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+venv/
+*.egg-info/
+
+# OS
+.DS_Store
+EOF

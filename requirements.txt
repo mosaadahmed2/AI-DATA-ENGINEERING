@@ -1,0 +1,17 @@
+cat > requirements.txt << 'EOF'
+fastapi
+uvicorn
+streamlit
+plotly
+pandas
+openpyxl
+faiss-cpu
+numpy
+sentence-transformers
+langchain
+langchain-text-splitters
+pypdf
+rank-bm25
+groq
+python-dotenv
+EOF
