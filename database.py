@@ -215,6 +215,8 @@ def get_quality_report(table_name: str) -> dict:
 
     with get_connection() as conn:
         df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+        df = df.replace([float('inf'), float('-inf')], None)
+        df = df.where(pd.notnull(df), None)
 
     report = {"table": table_name, "row_count": len(df), "columns": {}, "issues": [], "duplicate_rows": 0}
 
@@ -243,7 +245,7 @@ def get_quality_report(table_name: str) -> dict:
 
         report["columns"][col] = {
             "null_count": null_count,
-            "null_pct": round(null_count / total * 100, 1),
+            "null_pct": round(float(null_count / total * 100), 1),
             "unique_count": unique_count,
             "duplicate_value_count": len(dup_values),
             "top_duplicate_values": top_dupes,
