@@ -30,19 +30,24 @@ def sanitize_column_name(col: str) -> str:
     return col or "column"
 
 
+def safe_float(val) -> Optional[float]:
+    """Convert to float, returning None for NaN/inf."""
+    try:
+        v = float(val)
+        if v != v or v == float('inf') or v == float('-inf'):
+            return None
+        return round(v, 4)
+    except Exception:
+        return None
+
+
 def profile_dataframe(df: pd.DataFrame) -> dict:
-    """
-    Run data quality checks on a DataFrame and return a profile report.
-    Checks: nulls, duplicates, unique counts, data types, numeric stats.
-    """
     total_rows = len(df)
     total_cols = len(df.columns)
 
-    # ── Duplicate rows ───────────────────────────────────────────────────────
     duplicate_row_count = int(df.duplicated().sum())
     duplicate_row_pct = round(duplicate_row_count / total_rows * 100, 1) if total_rows else 0
 
-    # ── Per-column profile ───────────────────────────────────────────────────
     columns = []
     issues = []
 
@@ -63,16 +68,14 @@ def profile_dataframe(df: pd.DataFrame) -> dict:
             "duplicate_value_count": max(duplicate_vals, 0),
         }
 
-        # Numeric stats
         if pd.api.types.is_numeric_dtype(series):
             col_profile.update({
-                "min": round(float(series.min()), 4) if not series.isnull().all() else None,
-                "max": round(float(series.max()), 4) if not series.isnull().all() else None,
-                "mean": round(float(series.mean()), 4) if not series.isnull().all() else None,
-                "std": round(float(series.std()), 4) if not series.isnull().all() else None,
+                "min": safe_float(series.min()) if not series.isnull().all() else None,
+                "max": safe_float(series.max()) if not series.isnull().all() else None,
+                "mean": safe_float(series.mean()) if not series.isnull().all() else None,
+                "std": safe_float(series.std()) if not series.isnull().all() else None,
             })
 
-        # Top duplicate values (values appearing more than once)
         value_counts = series.value_counts()
         dupes = value_counts[value_counts > 1]
         if not dupes.empty:
@@ -85,7 +88,6 @@ def profile_dataframe(df: pd.DataFrame) -> dict:
 
         columns.append(col_profile)
 
-        # Flag issues
         if null_pct > 20:
             issues.append({"column": col, "issue": "high_nulls", "detail": f"{null_pct}% null values"})
         if unique_count == total_rows and total_rows > 1:
@@ -114,49 +116,48 @@ def profile_dataframe(df: pd.DataFrame) -> dict:
 
 
 def _compute_health_score(dup_rows: int, total_rows: int, columns: list) -> int:
-    """Simple 0-100 health score based on nulls and duplicates."""
     score = 100
     if total_rows == 0:
         return 0
-
-    # Penalise duplicate rows
     dup_pct = dup_rows / total_rows * 100
     score -= min(dup_pct * 2, 30)
-
-    # Penalise null-heavy columns
     for col in columns:
         if col["null_pct"] > 50:
             score -= 10
         elif col["null_pct"] > 20:
             score -= 5
-
     return max(int(score), 0)
 
 
 def ingest_file_to_db(filename: str, df: pd.DataFrame) -> dict:
-    """Ingest a DataFrame into SQLite. Returns table info + quality profile."""
     table_name = sanitize_table_name(filename)
-
     df.columns = [sanitize_column_name(c) for c in df.columns]
     df = df.dropna(axis=1, how="all")
+    df = df.replace([float('inf'), float('-inf')], None)
 
-    # Run quality profile BEFORE writing to DB (on raw data)
     quality = profile_dataframe(df)
 
     with get_connection() as conn:
         df.to_sql(table_name, conn, if_exists="replace", index=False)
 
     schema = load_schema()
+
+    # Make sample JSON-safe
+    sample_rows = []
+    for row in df.head(3).to_dict(orient="records"):
+        safe_row = {k: (None if (isinstance(v, float) and (v != v or v == float('inf') or v == float('-inf'))) else v)
+                    for k, v in row.items()}
+        sample_rows.append(safe_row)
+
     schema[table_name] = {
         "source_file": filename,
         "columns": list(df.columns),
         "row_count": len(df),
         "dtypes": {col: str(df[col].dtype) for col in df.columns},
-        "sample": df.head(3).to_dict(orient="records"),
+        "sample": sample_rows,
         "quality": quality,
     }
     save_schema(schema)
-
     return schema[table_name]
 
 
@@ -176,7 +177,6 @@ def get_schema_prompt() -> str:
     schema = load_schema()
     if not schema:
         return "No database tables available."
-
     lines = []
     for table, info in schema.items():
         lines.append(f"Table: {table}  (source: {info['source_file']}, {info['row_count']} rows)")
@@ -215,48 +215,56 @@ def get_quality_report(table_name: str) -> dict:
 
     with get_connection() as conn:
         df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
-        df = df.replace([float('inf'), float('-inf')], None)
-        df = df.where(pd.notnull(df), None)
 
-    report = {"table": table_name, "row_count": len(df), "columns": {}, "issues": [], "duplicate_rows": 0}
+    df = df.replace([float('inf'), float('-inf')], None)
+    df = df.where(pd.notnull(df), None)
 
-    # Duplicate rows
+    report = {
+        "table": table_name,
+        "row_count": len(df),
+        "columns": {},
+        "issues": [],
+        "duplicate_rows": 0,
+    }
+
     report["duplicate_rows"] = int(df.duplicated().sum())
 
-    # Per column stats
     for col in df.columns:
+        total = len(df)
         null_count = int(df[col].isnull().sum())
         unique_count = int(df[col].nunique())
-        total = len(df)
         dup_values = df[col].dropna()
         dup_values = dup_values[dup_values.duplicated(keep=False)]
-        top_dupes = dup_values.value_counts().head(5).to_dict()
-        top_dupes = {str(k): int(v) for k, v in top_dupes.items()}
+        top_dupes = {str(k): int(v) for k, v in dup_values.value_counts().head(5).to_dict().items()}
 
-        issues = []
-        if null_count / total > 0.2:
-            issues.append("high_nulls")
-        if unique_count == total:
-            issues.append("all_unique")
+        col_issues = []
+        if total > 0 and null_count / total > 0.2:
+            col_issues.append("high_nulls")
+        if unique_count == total and total > 1:
+            col_issues.append("all_unique")
         if unique_count == 1:
-            issues.append("constant")
+            col_issues.append("constant")
         if df[col].dtype == "object" and unique_count < 5:
-            issues.append("low_cardinality")
+            col_issues.append("low_cardinality")
 
         report["columns"][col] = {
             "null_count": null_count,
-            "null_pct": round(float(null_count / total * 100), 1),
+            "null_pct": round(float(null_count / total * 100), 1) if total > 0 else 0.0,
             "unique_count": unique_count,
-            "duplicate_value_count": len(dup_values),
+            "duplicate_value_count": int(len(dup_values)),
             "top_duplicate_values": top_dupes,
-            "issues": issues,
+            "issues": col_issues,
         }
 
-        report["issues"].extend([f"{col}: {i}" for i in issues])
+        report["issues"].extend([f"{col}: {i}" for i in col_issues])
 
-    # Health score
-    null_pct = sum(v["null_pct"] for v in report["columns"].values()) / len(df.columns)
-    dup_pct = report["duplicate_rows"] / len(df) * 100
-    report["health_score"] = max(0, round(100 - null_pct - dup_pct))
+    total_cols = len(df.columns)
+    if total_cols > 0:
+        avg_null_pct = sum(v["null_pct"] for v in report["columns"].values()) / total_cols
+    else:
+        avg_null_pct = 0
+
+    dup_pct = (report["duplicate_rows"] / len(df) * 100) if len(df) > 0 else 0
+    report["health_score"] = max(0, round(100 - avg_null_pct - dup_pct))
 
     return report
