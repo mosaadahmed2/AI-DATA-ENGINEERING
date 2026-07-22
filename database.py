@@ -1,16 +1,16 @@
-import sqlite3
+import duckdb
 import pandas as pd
 import json
 import os
 import re
 from typing import Optional
 
-DB_PATH = "data_assistant.db"
+DB_PATH = "data_assistant.duckdb"
 SCHEMA_PATH = "db_schema.json"
 
 
 def get_connection():
-    return sqlite3.connect(DB_PATH)
+    return duckdb.connect(DB_PATH)
 
 
 def sanitize_table_name(filename: str) -> str:
@@ -31,7 +31,6 @@ def sanitize_column_name(col: str) -> str:
 
 
 def safe_float(val) -> Optional[float]:
-    """Convert to float, returning None for NaN/inf."""
     try:
         v = float(val)
         if v != v or v == float('inf') or v == float('-inf'):
@@ -78,13 +77,10 @@ def profile_dataframe(df: pd.DataFrame) -> dict:
 
         value_counts = series.value_counts()
         dupes = value_counts[value_counts > 1]
-        if not dupes.empty:
-            col_profile["top_duplicates"] = [
-                {"value": str(v), "count": int(c)}
-                for v, c in dupes.head(5).items()
-            ]
-        else:
-            col_profile["top_duplicates"] = []
+        col_profile["top_duplicates"] = (
+            [{"value": str(v), "count": int(c)} for v, c in dupes.head(5).items()]
+            if not dupes.empty else []
+        )
 
         columns.append(col_profile)
 
@@ -101,7 +97,7 @@ def profile_dataframe(df: pd.DataFrame) -> dict:
         issues.insert(0, {
             "column": "— (entire row)",
             "issue": "duplicate_rows",
-            "detail": f"{duplicate_row_count} duplicate rows ({duplicate_row_pct}%)"
+            "detail": f"{duplicate_row_count} duplicate rows ({duplicate_row_pct}%)",
         })
 
     return {
@@ -130,7 +126,9 @@ def _compute_health_score(dup_rows: int, total_rows: int, columns: list) -> int:
 
 
 def ingest_file_to_db(filename: str, df: pd.DataFrame) -> dict:
+    """Ingest a DataFrame into DuckDB. Replaces table if it already exists."""
     table_name = sanitize_table_name(filename)
+
     df.columns = [sanitize_column_name(c) for c in df.columns]
     df = df.dropna(axis=1, how="all")
     df = df.replace([float('inf'), float('-inf')], None)
@@ -138,15 +136,19 @@ def ingest_file_to_db(filename: str, df: pd.DataFrame) -> dict:
     quality = profile_dataframe(df)
 
     with get_connection() as conn:
-        df.to_sql(table_name, conn, if_exists="replace", index=False)
+        # DuckDB: register df as a view then CREATE OR REPLACE TABLE from it
+        conn.register("_tmp_df", df)
+        conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM _tmp_df")
+        conn.unregister("_tmp_df")
 
     schema = load_schema()
 
-    # Make sample JSON-safe
     sample_rows = []
     for row in df.head(3).to_dict(orient="records"):
-        safe_row = {k: (None if (isinstance(v, float) and (v != v or v == float('inf') or v == float('-inf'))) else v)
-                    for k, v in row.items()}
+        safe_row = {
+            k: (None if isinstance(v, float) and (v != v or abs(v) == float('inf')) else v)
+            for k, v in row.items()
+        }
         sample_rows.append(safe_row)
 
     schema[table_name] = {
@@ -158,6 +160,7 @@ def ingest_file_to_db(filename: str, df: pd.DataFrame) -> dict:
         "quality": quality,
     }
     save_schema(schema)
+
     return schema[table_name]
 
 
@@ -190,8 +193,9 @@ def get_schema_prompt() -> str:
 
 
 def run_sql(sql: str) -> pd.DataFrame:
+    """Run SQL against DuckDB and return a DataFrame."""
     with get_connection() as conn:
-        return pd.read_sql_query(sql, conn)
+        return conn.execute(sql).df()
 
 
 def list_tables() -> list:
@@ -214,7 +218,7 @@ def get_quality_report(table_name: str) -> dict:
         return None
 
     with get_connection() as conn:
-        df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+        df = conn.execute(f"SELECT * FROM {table_name}").df()
 
     df = df.replace([float('inf'), float('-inf')], None)
     df = df.where(pd.notnull(df), None)
@@ -259,11 +263,7 @@ def get_quality_report(table_name: str) -> dict:
         report["issues"].extend([f"{col}: {i}" for i in col_issues])
 
     total_cols = len(df.columns)
-    if total_cols > 0:
-        avg_null_pct = sum(v["null_pct"] for v in report["columns"].values()) / total_cols
-    else:
-        avg_null_pct = 0
-
+    avg_null_pct = sum(v["null_pct"] for v in report["columns"].values()) / total_cols if total_cols else 0
     dup_pct = (report["duplicate_rows"] / len(df) * 100) if len(df) > 0 else 0
     report["health_score"] = max(0, round(100 - avg_null_pct - dup_pct))
 
