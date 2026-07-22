@@ -1,9 +1,12 @@
 import faiss
 import numpy as np
 import pandas as pd
+import math
+import json as _json
 from groq import Groq
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -12,7 +15,6 @@ from pypdf import PdfReader
 from typing import List
 
 import os
-import json
 import io
 
 from rank_bm25 import BM25Okapi
@@ -20,27 +22,28 @@ from rank_bm25 import BM25Okapi
 from database import ingest_file_to_db, list_tables, get_schema_prompt, get_quality_report
 from chart import answer_data_question
 
-import math
-from fastapi.responses import JSONResponse
 
-def sanitize_json(obj):
-    """Recursively replace NaN/inf with None so JSON serialization never fails."""
+# ── Global NaN/Inf sanitizer ──────────────────────────────────────────────────
+def _sanitize(obj):
+    """Recursively replace NaN/Inf with None so json.dumps never raises."""
     if isinstance(obj, float):
-        if math.isnan(obj) or math.isinf(obj):
-            return None
-        return obj
-    elif isinstance(obj, dict):
-        return {k: sanitize_json(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [sanitize_json(v) for v in obj]
+        return None if (math.isnan(obj) or math.isinf(obj)) else obj
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
     return obj
 
+def safe_json_response(data):
+    return JSONResponse(content=_sanitize(data))
+
+
+# ── App setup ─────────────────────────────────────────────────────────────────
 bm25 = None
 tokenized_corpus = []
 
 app = FastAPI()
 
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 def chat(prompt: str) -> str:
@@ -59,13 +62,12 @@ embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 INDEX_PATH = "faiss_index.bin"
 CHUNKS_PATH = "chunks.json"
 
-# FAISS IVF constants
-FAISS_NLIST = 50        # number of clusters — tune up as corpus grows
-FAISS_NPROBE = 10       # clusters to search at query time (accuracy vs speed)
-DIMENSION = 384         # all-MiniLM-L6-v2 output dimension
+FAISS_NLIST  = 50
+FAISS_NPROBE = 10
+DIMENSION    = 384
 
 vector_index = None
-chunk_store = {}
+chunk_store  = {}
 
 class QuestionRequest(BaseModel):
     question: str
@@ -85,18 +87,11 @@ def startup_event():
 
 
 def _build_ivf_index(embeddings_matrix: np.ndarray) -> faiss.Index:
-    """
-    Build a FAISS IVFFlat index. Falls back to IndexFlatL2 when the
-    corpus is too small to train a meaningful IVF quantizer (need at
-    least FAISS_NLIST vectors).
-    """
     n = embeddings_matrix.shape[0]
     if n < FAISS_NLIST:
-        # Not enough vectors to train IVF — use flat index
         idx = faiss.IndexFlatL2(DIMENSION)
         idx.add(embeddings_matrix)
         return idx
-
     quantizer = faiss.IndexFlatL2(DIMENSION)
     idx = faiss.IndexIVFFlat(quantizer, DIMENSION, FAISS_NLIST)
     idx.train(embeddings_matrix)
@@ -107,22 +102,15 @@ def _build_ivf_index(embeddings_matrix: np.ndarray) -> faiss.Index:
 
 def load_data():
     global vector_index, chunk_store
-
     if os.path.exists(INDEX_PATH) and os.path.exists(CHUNKS_PATH):
         vector_index = faiss.read_index(INDEX_PATH)
-
-        # Restore nprobe if it's an IVF index
         if hasattr(vector_index, 'nprobe'):
             vector_index.nprobe = FAISS_NPROBE
-
         with open(CHUNKS_PATH, "r") as f:
-            chunk_store = json.load(f)
-
-        chunk_store = {int(k): v for k, v in chunk_store.items()}
-        print(f"✅ Loaded existing index ({len(chunk_store)} chunks)")
+            chunk_store = {int(k): v for k, v in _json.load(f).items()}
+        print(f"✅ Loaded {len(chunk_store)} chunks")
     else:
         print("⚠️ No existing data found")
-
     build_bm25()
 
 
@@ -134,16 +122,13 @@ def list_documents():
 
 def build_bm25():
     global bm25, tokenized_corpus
-
     corpus = [v["text"] for v in chunk_store.values()]
-
     if not corpus:
         bm25 = None
         return
-
     tokenized_corpus = [doc.lower().split() for doc in corpus]
     bm25 = BM25Okapi(tokenized_corpus)
-    print(f"✅ BM25 index built ({len(corpus)} docs)")
+    print(f"✅ BM25 built ({len(corpus)} docs)")
 
 
 # =========================
@@ -153,12 +138,10 @@ def build_bm25():
 @app.post("/upload")
 async def upload_files(files: List[UploadFile] = File(...)):
     global vector_index, chunk_store
-
     total_new_chunks = 0
 
     for file in files:
         text = ""
-
         if file.filename.endswith(".pdf"):
             reader = PdfReader(file.file)
             for page in reader.pages:
@@ -171,21 +154,13 @@ async def upload_files(files: List[UploadFile] = File(...)):
             continue
 
         text = " ".join(text.split())
-
         splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
         chunks = splitter.split_text(text)
-
         if not chunks:
             continue
 
-        # Batch encode embeddings
-        embeddings = embedding_model.encode(
-            chunks,
-            batch_size=32,
-            show_progress_bar=False,
-        )
+        embeddings = embedding_model.encode(chunks, batch_size=32, show_progress_bar=False)
         embeddings_f32 = np.array(embeddings).astype("float32")
-
         start_idx = len(chunk_store)
 
         for i, chunk in enumerate(chunks):
@@ -196,29 +171,22 @@ async def upload_files(files: List[UploadFile] = File(...)):
                 "chunk_id": start_idx + i,
             }
 
-        # Rebuild IVF index from all embeddings so far
         all_embeddings = np.array(
             [chunk_store[k]["embedding"] for k in sorted(chunk_store.keys())]
         ).astype("float32")
 
         vector_index = _build_ivf_index(all_embeddings)
-
         faiss.write_index(vector_index, INDEX_PATH)
 
         with open(CHUNKS_PATH, "w") as f:
-            json.dump(chunk_store, f)
+            _json.dump(chunk_store, f)
 
-        print(f"💾 Saved — total chunks: {len(chunk_store)}")
-
-        # Rebuild BM25 every 10 uploads to avoid blocking on large corpora
         if len(chunk_store) % 10 == 0 or total_new_chunks == 0:
             build_bm25()
 
         total_new_chunks += len(chunks)
 
-    # Final BM25 rebuild to capture any remainder
     build_bm25()
-
     return {
         "message": "Files uploaded successfully",
         "new_chunks_added": total_new_chunks,
@@ -227,42 +195,27 @@ async def upload_files(files: List[UploadFile] = File(...)):
 
 
 # =========================
-# 📊 UPLOAD DATA FILES — chunked CSV/Excel
+# 📊 UPLOAD DATA FILES
 # =========================
 
-CHUNK_SIZE = 50_000   # rows per chunk for large CSVs
+CHUNK_SIZE = 50_000
 
 @app.post("/upload-data")
 def upload_data_files(files: List[UploadFile] = File(...)):
-    """
-    Upload CSV or Excel files into DuckDB.
-    Large CSVs are read in chunks to avoid OOM on the 6GB VM.
-    """
     results = []
-
     for file in files:
         filename = file.filename
         content = file.file.read()
-
         try:
             if filename.endswith(".csv"):
-                # Chunked read for large files
-                chunks_iter = pd.read_csv(
-                    io.BytesIO(content),
-                    chunksize=CHUNK_SIZE,
-                    low_memory=False,
+                df = pd.concat(
+                    pd.read_csv(io.BytesIO(content), chunksize=CHUNK_SIZE, low_memory=False),
+                    ignore_index=True,
                 )
-                df = pd.concat(chunks_iter, ignore_index=True)
-
             elif filename.endswith((".xlsx", ".xls")):
                 df = pd.read_excel(io.BytesIO(content))
-
             else:
-                results.append({
-                    "file": filename,
-                    "status": "skipped",
-                    "reason": "Unsupported format (use CSV or Excel)",
-                })
+                results.append({"file": filename, "status": "skipped", "reason": "Unsupported format"})
                 continue
 
             if df.empty:
@@ -271,7 +224,6 @@ def upload_data_files(files: List[UploadFile] = File(...)):
 
             info = ingest_file_to_db(filename, df)
             quality = info.get("quality", {})
-
             results.append({
                 "file": filename,
                 "status": "success",
@@ -282,17 +234,15 @@ def upload_data_files(files: List[UploadFile] = File(...)):
                 "duplicate_rows": quality.get("duplicate_row_count", 0),
                 "issues": quality.get("issues", []),
             })
-
         except Exception as e:
             results.append({"file": filename, "status": "error", "reason": str(e)})
 
-    return {"results": results}
+    return safe_json_response({"results": results})
 
 
 @app.get("/data-tables")
 def get_data_tables():
-    tables = list_tables()
-    return {"tables": tables}
+    return safe_json_response({"tables": list_tables()})
 
 
 # =========================
@@ -304,11 +254,11 @@ def get_table_quality(table_name: str):
     report = get_quality_report(table_name)
     if report is None:
         raise HTTPException(status_code=404, detail=f"Table '{table_name}' not found")
-    return report
+    return safe_json_response(report)
 
 
 # =========================
-# 📈 ANALYZE / CHART
+# 📈 ANALYZE
 # =========================
 
 @app.post("/analyze")
@@ -316,17 +266,14 @@ def analyze_question(request: AnalyzeRequest):
     question = request.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
-
     result = answer_data_question(question)
-
     if not result["success"]:
         raise HTTPException(status_code=422, detail=result.get("error", "Analysis failed"))
-
-    return result
+    return safe_json_response(result)
 
 
 # =========================
-# ❓ ASK — Document Q&A
+# ❓ ASK
 # =========================
 
 @app.post("/ask")
@@ -341,13 +288,8 @@ def ask_question(request: QuestionRequest):
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
     rewritten_question = rewrite_query(original_question)
-
-    print("Original:", original_question)
-    print("Rewritten:", rewritten_question)
-
     question_embedding = embedding_model.encode([rewritten_question])[0]
 
-    # Restore nprobe in case index was reloaded
     if hasattr(vector_index, 'nprobe'):
         vector_index.nprobe = FAISS_NPROBE
 
@@ -370,35 +312,22 @@ def ask_question(request: QuestionRequest):
     for c in semantic_candidates + keyword_candidates:
         combined[c["chunk_id"]] = c
 
-    candidates = list(combined.values())
-
-    scored = []
-    for c in candidates:
-        if "embedding" not in c:
-            continue
-        chunk_embedding = np.array(c["embedding"])
-        score = cosine_similarity(question_embedding, chunk_embedding)
-        scored.append((score, c))
-
+    scored = [
+        (cosine_similarity(question_embedding, np.array(c["embedding"])), c)
+        for c in combined.values() if "embedding" in c
+    ]
     scored.sort(key=lambda x: x[0], reverse=True)
     top_chunks = [item[1] for item in scored[:3]]
 
-    retrieved_chunks = [c["text"] for c in top_chunks]
-    sources = [c["source"] for c in top_chunks]
-
-    if not retrieved_chunks:
+    if not top_chunks:
         raise HTTPException(status_code=404, detail="No relevant context found")
 
-    context = ""
-    for chunk in top_chunks:
-        context += f"[Source: {chunk['source']}]\n{chunk['text']}\n\n"
+    context = "".join(f"[Source: {c['source']}]\n{c['text']}\n\n" for c in top_chunks)
 
     prompt = f"""You are a precise assistant.
-
 Use only the context below to answer the question.
 If the answer is not in the context, say: "I don't know based on the provided document."
-Do not make up information.
-Keep the answer clear and concise.
+Do not make up information. Keep the answer clear and concise.
 
 Context:
 {context}
@@ -406,15 +335,14 @@ Context:
 Question:
 {original_question}
 """
-
     answer = chat(prompt)
 
     return {
         "question": original_question,
         "rewritten_question": rewritten_question,
         "answer": answer,
-        "sources": sources,
-        "context_used": retrieved_chunks,
+        "sources": [c["source"] for c in top_chunks],
+        "context_used": [c["text"] for c in top_chunks],
     }
 
 
@@ -423,11 +351,10 @@ def cosine_similarity(a, b):
 
 
 def rewrite_query(question: str) -> str:
-    prompt = f"""Rewrite the user question to improve retrieval from documents.
+    return chat(f"""Rewrite the user question to improve retrieval from documents.
 Make it specific, clear, and include important keywords.
 Do NOT answer the question.
 
 Original Question:
 {question}
-"""
-    return chat(prompt)
+""")
