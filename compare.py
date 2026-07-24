@@ -123,10 +123,17 @@ def compare_tables(table_a: str, table_b: str, key_column: str = None) -> dict:
 
         # For common keys, find rows where any value differs
         mismatches = []
-        for key in list(common_keys)[:100]:  # cap at 100 for performance
-            row_a = df_a_keyed.loc[key].astype(str)
-            row_b = df_b_keyed.loc[key].astype(str)
-            diff_cols = [c for c in row_a.index if row_a[c] != row_b[c]]
+        for key in list(common_keys)[:100]:
+            row_a = df_a_keyed.loc[key]
+            row_b = df_b_keyed.loc[key]
+
+            # Skip if key returns multiple rows (duplicate keys)
+            if isinstance(row_a, pd.DataFrame) or isinstance(row_b, pd.DataFrame):
+                continue
+
+            row_a = row_a.astype(str)
+            row_b = row_b.astype(str)
+            diff_cols = [c for c in row_a.index if str(row_a[c]) != str(row_b[c])]
             if diff_cols:
                 mismatches.append({
                     "key": str(key),
