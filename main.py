@@ -21,6 +21,7 @@ from rank_bm25 import BM25Okapi
 
 from database import ingest_file_to_db, list_tables, get_schema_prompt, get_quality_report
 from chart import answer_data_question
+from compare import compare_tables
 
 
 # ── Global NaN/Inf sanitizer ──────────────────────────────────────────────────
@@ -74,6 +75,11 @@ class QuestionRequest(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     question: str
+
+class CompareRequest(BaseModel):
+    table_a: str
+    table_b: str
+    key_column: str = None
 
 
 @app.get("/")
@@ -269,6 +275,23 @@ def analyze_question(request: AnalyzeRequest):
     result = answer_data_question(question)
     if not result["success"]:
         raise HTTPException(status_code=422, detail=result.get("error", "Analysis failed"))
+    return safe_json_response(result)
+
+
+
+# =========================
+# 🔄 COMPARE TABLES
+# =========================
+
+@app.post("/compare")
+def compare_tables_endpoint(request: CompareRequest):
+    if not request.table_a or not request.table_b:
+        raise HTTPException(status_code=400, detail="Both table_a and table_b are required")
+    if request.table_a == request.table_b:
+        raise HTTPException(status_code=400, detail="Please select two different tables")
+    result = compare_tables(request.table_a, request.table_b, request.key_column)
+    if not result["success"]:
+        raise HTTPException(status_code=422, detail=result.get("error", "Comparison failed"))
     return safe_json_response(result)
 
 
