@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from database_manager import get_connection, load_schema
+from database import get_connection, load_schema
 
 
 def compare_tables(table_a: str, table_b: str, key_column: str = None) -> dict:
