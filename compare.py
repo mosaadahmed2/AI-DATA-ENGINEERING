@@ -78,6 +78,13 @@ def compare_tables(table_a: str, table_b: str, key_column: str = None) -> dict:
         "exact_match_pct": round(rows_in_both / max(len(df_a), len(df_b)) * 100, 1) if max(len(df_a), len(df_b)) > 0 else 0,
     }
 
+    # ── Duplicate rows within each table ─────────────────────────────────────
+    result["duplicates"] = {
+        "within_a": int(df_a[shared].astype(str).duplicated().sum()),
+        "within_b": int(df_b[shared].astype(str).duplicated().sum()),
+        "identical_rows_across_tables": rows_in_both,
+    }
+
     # ── Per-column value comparison on shared cols ────────────────────────────
     min_rows = min(len(df_a), len(df_b))
     col_stats = {}

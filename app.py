@@ -621,6 +621,15 @@ with tab_compare:
 
                         st.divider()
 
+                        # ── Duplicate rows ────────────────────────────────────────────────────────
+                        st.divider()
+                        st.markdown("#### Duplicate Row Check")
+                        dup = r.get("duplicates", {})
+                        d1, d2, d3 = st.columns(3)
+                        d1.metric(f"Duplicates within {table_a}", dup.get("within_a", 0))
+                        d2.metric(f"Duplicates within {table_b}", dup.get("within_b", 0))
+                        d3.metric("Identical rows across both tables", dup.get("identical_rows_across_tables", 0))
+
                         # ── Per-column value comparison ───────────────────────
                         st.markdown("#### Column-Level Value Comparison")
                         vc = r.get("value_comparison", {})
