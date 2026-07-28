@@ -79,7 +79,7 @@ class AnalyzeRequest(BaseModel):
 class CompareRequest(BaseModel):
     table_a: str
     table_b: str
-    key_column: str = None
+    key_column: Optional[str] = None
 
 
 @app.get("/")
