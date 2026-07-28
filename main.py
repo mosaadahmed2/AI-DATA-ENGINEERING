@@ -12,7 +12,7 @@ from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from pypdf import PdfReader
-from typing import List
+from typing import List, Optional
 
 import os
 import io
