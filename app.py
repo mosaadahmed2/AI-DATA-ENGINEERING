@@ -17,20 +17,15 @@ API_URL = "http://127.0.0.1:8000"
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
     * { font-family: 'Inter', sans-serif; }
 
-    /* ── Page background ── */
-    .stApp { background: #0f1117; }
+    .stApp { background: #f8fafc; }
     .block-container { padding: 1.5rem 2rem 2rem; max-width: 1400px; }
-
-    /* ── Hide default streamlit chrome ── */
     #MainMenu, footer, header { visibility: hidden; }
 
-    /* ── Hero header ── */
+    /* ── Hero ── */
     .hero {
-        background: linear-gradient(135deg, #1a1f2e 0%, #16213e 50%, #0f3460 100%);
-        border: 1px solid #2d3748;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
         border-radius: 16px;
         padding: 2rem 2.5rem;
         margin-bottom: 1.5rem;
@@ -40,36 +35,21 @@ st.markdown("""
     .hero::before {
         content: '';
         position: absolute;
-        top: -50%;
-        right: -10%;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+        top: -40%;
+        right: -5%;
+        width: 350px;
+        height: 350px;
+        background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
         pointer-events: none;
     }
-    .hero-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #fff;
-        margin: 0 0 0.3rem;
-        letter-spacing: -0.5px;
-    }
-    .hero-title span { color: #818cf8; }
-    .hero-sub {
-        color: #94a3b8;
-        font-size: 0.95rem;
-        margin: 0;
-    }
-    .hero-badges {
-        margin-top: 1rem;
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-    }
+    .hero-title { font-size: 2rem; font-weight: 700; color: #fff; margin: 0 0 0.3rem; letter-spacing: -0.5px; }
+    .hero-title span { color: #e0e7ff; }
+    .hero-sub { color: rgba(255,255,255,0.8); font-size: 0.95rem; margin: 0; }
+    .hero-badges { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
     .badge {
-        background: rgba(99,102,241,0.15);
-        border: 1px solid rgba(99,102,241,0.3);
-        color: #a5b4fc;
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: #fff;
         border-radius: 999px;
         padding: 3px 12px;
         font-size: 0.75rem;
@@ -79,11 +59,12 @@ st.markdown("""
 
     /* ── Tabs ── */
     div[data-testid="stTabs"] {
-        background: #1a1f2e;
+        background: #fff;
         border-radius: 12px;
         padding: 4px;
-        border: 1px solid #2d3748;
+        border: 1px solid #e2e8f0;
         margin-bottom: 1.5rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     div[data-testid="stTabs"] button {
         background: transparent;
@@ -95,51 +76,30 @@ st.markdown("""
         border: none;
         transition: all 0.2s;
     }
-    div[data-testid="stTabs"] button:hover { color: #e2e8f0; background: rgba(99,102,241,0.1); }
-    div[data-testid="stTabs"] button[aria-selected="true"] {
-        background: #6366f1 !important;
-        color: #fff !important;
-    }
+    div[data-testid="stTabs"] button:hover { color: #6366f1; background: #f5f3ff; }
+    div[data-testid="stTabs"] button[aria-selected="true"] { background: #6366f1 !important; color: #fff !important; }
     div[data-testid="stTabs"] [role="tabpanel"] { padding: 0; }
-
-    /* ── Cards ── */
-    .card {
-        background: #1a1f2e;
-        border: 1px solid #2d3748;
-        border-radius: 12px;
-        padding: 1.25rem 1.5rem;
-        margin-bottom: 1rem;
-    }
-    .card-title {
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        color: #6366f1;
-        margin-bottom: 0.75rem;
-    }
 
     /* ── Metrics ── */
     div[data-testid="stMetric"] {
-        background: #1a1f2e;
-        border: 1px solid #2d3748;
+        background: #fff;
+        border: 1px solid #e2e8f0;
         border-radius: 10px;
         padding: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
-    div[data-testid="stMetric"] label { color: #64748b !important; font-size: 0.75rem !important; font-weight: 600 !important; text-transform: uppercase; letter-spacing: 0.05em; }
-    div[data-testid="stMetric"] [data-testid="stMetricValue"] { color: #f1f5f9 !important; font-size: 1.5rem !important; font-weight: 700 !important; }
+    div[data-testid="stMetric"] label { color: #64748b !important; font-size: 0.72rem !important; font-weight: 600 !important; text-transform: uppercase; letter-spacing: 0.05em; }
+    div[data-testid="stMetric"] [data-testid="stMetricValue"] { color: #1e293b !important; font-size: 1.5rem !important; font-weight: 700 !important; }
 
     /* ── Inputs ── */
-    .stTextInput input, .stSelectbox select {
-        background: #1a1f2e !important;
-        border: 1px solid #2d3748 !important;
+    .stTextInput input {
+        background: #fff !important;
+        border: 1.5px solid #e2e8f0 !important;
         border-radius: 8px !important;
-        color: #e2e8f0 !important;
+        color: #1e293b !important;
+        font-size: 0.9rem !important;
     }
-    .stTextInput input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.15) !important; }
-
-    div[data-testid="stSelectbox"] > div { background: #1a1f2e; border: 1px solid #2d3748; border-radius: 8px; }
-    div[data-testid="stSelectbox"] span { color: #e2e8f0; }
+    .stTextInput input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important; }
 
     /* ── Buttons ── */
     .stButton > button {
@@ -151,14 +111,14 @@ st.markdown("""
         font-size: 0.85rem !important;
         padding: 0.5rem 1rem !important;
         transition: all 0.2s !important;
-        box-shadow: 0 2px 8px rgba(99,102,241,0.3) !important;
+        box-shadow: 0 2px 8px rgba(99,102,241,0.25) !important;
     }
-    .stButton > button:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.4) !important; }
+    .stButton > button:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.35) !important; }
 
     /* ── File uploader ── */
     div[data-testid="stFileUploader"] {
-        background: #1a1f2e;
-        border: 1.5px dashed #374151;
+        background: #fff;
+        border: 1.5px dashed #cbd5e1;
         border-radius: 10px;
         padding: 0.5rem;
     }
@@ -166,49 +126,56 @@ st.markdown("""
 
     /* ── Expanders ── */
     div[data-testid="stExpander"] {
-        background: #1a1f2e;
-        border: 1px solid #2d3748 !important;
+        background: #fff;
+        border: 1px solid #e2e8f0 !important;
         border-radius: 10px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
-    div[data-testid="stExpander"] summary { color: #94a3b8 !important; }
-    div[data-testid="stExpander"] summary:hover { color: #e2e8f0 !important; }
 
     /* ── Dataframes ── */
-    div[data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; border: 1px solid #2d3748; }
-    div[data-testid="stDataFrame"] th { background: #1e2535 !important; color: #6366f1 !important; font-size: 0.75rem !important; text-transform: uppercase; letter-spacing: 0.05em; }
-
-    /* ── Alerts ── */
-    div[data-testid="stAlert"] { border-radius: 10px !important; border-left-width: 4px !important; }
+    div[data-testid="stDataFrame"] { border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
 
     /* ── Custom components ── */
+    .card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+        color: #1e293b;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
     .insight-box {
-        background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.1));
-        border: 1px solid rgba(99,102,241,0.3);
+        background: #f5f3ff;
+        border: 1px solid #ddd6fe;
         border-left: 4px solid #6366f1;
         border-radius: 10px;
         padding: 0.85rem 1.2rem;
         margin-bottom: 1rem;
-        color: #c7d2fe;
+        color: #4c1d95;
         font-size: 0.9rem;
     }
 
     .join-badge {
-        background: rgba(245,158,11,0.1);
-        border: 1px solid rgba(245,158,11,0.3);
+        background: #fffbeb;
+        border: 1px solid #fde68a;
         border-left: 4px solid #f59e0b;
         border-radius: 10px;
         padding: 0.6rem 1rem;
         margin-bottom: 0.75rem;
-        color: #fcd34d;
+        color: #92400e;
         font-size: 0.85rem;
         font-weight: 600;
     }
 
     .pill {
         display: inline-block;
-        background: rgba(99,102,241,0.15);
-        border: 1px solid rgba(99,102,241,0.3);
-        color: #a5b4fc;
+        background: #ede9fe;
+        border: 1px solid #ddd6fe;
+        color: #5b21b6;
         border-radius: 999px;
         padding: 2px 10px;
         font-size: 0.75rem;
@@ -217,34 +184,26 @@ st.markdown("""
         font-family: monospace;
     }
 
-    .verdict-good  { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; border-radius: 10px; padding: 0.75rem 1rem; font-weight: 600; margin-bottom: 1rem; }
-    .verdict-warn  { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: #fcd34d; border-radius: 10px; padding: 0.75rem 1rem; font-weight: 600; margin-bottom: 1rem; }
-    .verdict-bad   { background: rgba(239,68,68,0.1);  border: 1px solid rgba(239,68,68,0.3);  color: #fca5a5; border-radius: 10px; padding: 0.75rem 1rem; font-weight: 600; margin-bottom: 1rem; }
+    .verdict-good  { background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #10b981; color: #065f46; border-radius: 10px; padding: 0.75rem 1rem; font-weight: 600; margin-bottom: 1rem; }
+    .verdict-warn  { background: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; color: #92400e; border-radius: 10px; padding: 0.75rem 1rem; font-weight: 600; margin-bottom: 1rem; }
+    .verdict-bad   { background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #ef4444; color: #991b1b; border-radius: 10px; padding: 0.75rem 1rem; font-weight: 600; margin-bottom: 1rem; }
 
     .section-title {
         font-size: 0.7rem;
         font-weight: 700;
         letter-spacing: 0.1em;
         text-transform: uppercase;
-        color: #475569;
+        color: #94a3b8;
         margin: 1.25rem 0 0.5rem;
     }
 
-    /* ── Sidebar (hidden but styled) ── */
-    section[data-testid="stSidebar"] { background: #0f1117; border-right: 1px solid #1e2535; }
-
-    /* ── Code blocks ── */
-    .stCodeBlock { border-radius: 8px !important; border: 1px solid #2d3748 !important; }
-
-    /* ── Spinner ── */
+    hr { border-color: #f1f5f9 !important; }
     .stSpinner > div { border-top-color: #6366f1 !important; }
-
-    /* ── Divider ── */
-    hr { border-color: #1e2535 !important; }
+    .stCodeBlock { border-radius: 8px !important; border: 1px solid #e2e8f0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Hero header ───────────────────────────────────────────────────────────────
+# ── Hero ──────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="hero">
     <div class="hero-title">⚡ Data<span>Mind</span> AI</div>
@@ -259,7 +218,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Tabs ─────────────────────────────────────────────────────────────────────
 tab_docs, tab_data, tab_quality, tab_compare = st.tabs([
     "📄  Document Q&A",
     "📊  Data Analysis",
@@ -268,10 +226,10 @@ tab_docs, tab_data, tab_quality, tab_compare = st.tabs([
 ])
 
 PLOTLY_THEME = dict(
-    template="plotly_dark",
+    template="plotly_white",
     paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter", color="#94a3b8"),
+    plot_bgcolor="#fafafa",
+    font=dict(family="Inter", color="#475569"),
     margin=dict(t=50, l=20, r=20, b=20),
     height=420,
 )
@@ -286,13 +244,9 @@ with tab_docs:
     with left:
         st.markdown('<div class="section-title">Upload Documents</div>', unsafe_allow_html=True)
         uploaded_files = st.file_uploader(
-            "PDF or TXT files",
-            accept_multiple_files=True,
-            type=["txt", "pdf"],
-            key="doc_uploader",
-            label_visibility="collapsed",
+            "PDF or TXT", accept_multiple_files=True, type=["txt", "pdf"],
+            key="doc_uploader", label_visibility="collapsed",
         )
-
         if st.button("⬆️  Upload & Index", use_container_width=True):
             if uploaded_files:
                 files = [("files", (f.name, f, f.type)) for f in uploaded_files]
@@ -300,14 +254,14 @@ with tab_docs:
                     res = requests.post(f"{API_URL}/upload", files=files)
                 if res.status_code == 200:
                     d = res.json()
-                    st.success(f"✅ Indexed **{d['new_chunks_added']}** new chunks · {d['total_chunks']} total")
+                    st.success(f"✅ Indexed **{d['new_chunks_added']}** chunks · {d['total_chunks']} total")
                 else:
                     st.error(res.text)
             else:
                 st.warning("Select at least one file.")
 
         st.markdown('<div class="section-title">Indexed Documents</div>', unsafe_allow_html=True)
-        if st.button("↻  Refresh list", use_container_width=True, key="refresh_docs"):
+        if st.button("↻  Refresh", use_container_width=True, key="refresh_docs"):
             res = requests.get(f"{API_URL}/documents")
             if res.status_code == 200:
                 docs = res.json().get("documents", [])
@@ -319,27 +273,19 @@ with tab_docs:
 
     with right:
         st.markdown('<div class="section-title">Ask a Question</div>', unsafe_allow_html=True)
-        question = st.text_input(
-            "question",
-            placeholder="e.g. What are the key findings in the report?",
-            label_visibility="collapsed",
-        )
+        question = st.text_input("question", placeholder="e.g. What are the key findings?", label_visibility="collapsed")
 
         if st.button("🔍  Get Answer", use_container_width=True):
             if question.strip():
                 with st.spinner("Retrieving context and generating answer…"):
                     res = requests.post(f"{API_URL}/ask", json={"question": question})
-
                 if res.status_code == 200:
                     data = res.json()
-
                     st.markdown('<div class="section-title">Answer</div>', unsafe_allow_html=True)
-                    st.markdown(f"""<div class="card">{data["answer"]}</div>""", unsafe_allow_html=True)
-
+                    st.markdown(f"<div class='card'>{data['answer']}</div>", unsafe_allow_html=True)
                     st.markdown('<div class="section-title">Sources</div>', unsafe_allow_html=True)
                     for src in data.get("sources", []):
                         st.markdown(f"<span class='pill'>📄 {src}</span>", unsafe_allow_html=True)
-
                     with st.expander("🔎  Rewritten query & retrieved chunks"):
                         st.code(data.get("rewritten_question", ""), language="text")
                         for i, chunk in enumerate(data.get("context_used", []), 1):
@@ -363,15 +309,10 @@ with tab_data:
     with d_left:
         st.markdown('<div class="section-title">Upload Data Files</div>', unsafe_allow_html=True)
         st.caption("CSV and Excel. Each file becomes a queryable table.")
-
         data_files = st.file_uploader(
-            "CSV or Excel",
-            accept_multiple_files=True,
-            type=["csv", "xlsx", "xls"],
-            key="data_uploader",
-            label_visibility="collapsed",
+            "CSV or Excel", accept_multiple_files=True, type=["csv", "xlsx", "xls"],
+            key="data_uploader", label_visibility="collapsed",
         )
-
         if st.button("⬆️  Upload to Database", use_container_width=True):
             if data_files:
                 files = [("files", (f.name, f, f.type)) for f in data_files]
@@ -403,8 +344,7 @@ with tab_data:
                                 all_cols.setdefault(col, []).append(t["table"])
                         shared = {col: tbls for col, tbls in all_cols.items() if len(tbls) > 1}
                         if shared:
-                            hint = " · ".join([f"`{col}`" for col in shared])
-                            st.info(f"🔗 Joinable columns: {hint}")
+                            st.info("🔗 Joinable: " + " · ".join([f"`{c}`" for c in shared]))
                     for t in tables:
                         with st.expander(f"🗄️ `{t['table']}` — {t['row_count']:,} rows"):
                             st.caption(f"Source: {t['source_file']}")
@@ -423,26 +363,12 @@ with tab_data:
             "Show monthly trend of orders over time",
             "Which region has the highest average order amount?",
         ]
-
-        selected = st.selectbox(
-            "example",
-            [""] + examples,
-            label_visibility="collapsed",
-            format_func=lambda x: "💡 Pick an example…" if x == "" else x,
-        )
-
-        data_question = st.text_input(
-            "data question",
-            value=selected,
-            placeholder="e.g. Show total revenue by region as a bar chart",
-            label_visibility="collapsed",
-        )
-
-        chart_override = st.selectbox(
-            "Chart type",
-            ["Auto-detect", "bar", "line", "pie", "scatter", "histogram", "table"],
-            label_visibility="visible",
-        )
+        selected = st.selectbox("example", [""] + examples, label_visibility="collapsed",
+                                format_func=lambda x: "💡 Pick an example…" if x == "" else x)
+        data_question = st.text_input("data question", value=selected,
+                                      placeholder="e.g. Show total revenue by region as a bar chart",
+                                      label_visibility="collapsed")
+        chart_override = st.selectbox("Chart type", ["Auto-detect", "bar", "line", "pie", "scatter", "histogram", "table"])
 
         if st.button("📊  Generate", use_container_width=True):
             if data_question.strip():
@@ -451,14 +377,13 @@ with tab_data:
 
                 if res.status_code == 200:
                     result = res.json()
-
                     tables_used = result.get("tables_used", [])
                     if result.get("join_used"):
                         pills = "".join([f"<span class='pill'>{t}</span>" for t in tables_used])
                         st.markdown(f"<div class='join-badge'>🔗 Join across {len(tables_used)} tables: {pills}</div>", unsafe_allow_html=True)
                     elif tables_used:
                         pills = "".join([f"<span class='pill'>{t}</span>" for t in tables_used])
-                        st.markdown(f"<div style='margin-bottom:0.5rem;font-size:0.8rem;color:#475569;'>Table: {pills}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='margin-bottom:0.5rem;font-size:0.8rem;color:#94a3b8;'>Table: {pills}</div>", unsafe_allow_html=True)
 
                     if result.get("insight"):
                         st.markdown(f"<div class='insight-box'>💡 {result['insight']}</div>", unsafe_allow_html=True)
@@ -473,7 +398,6 @@ with tab_data:
                         df = pd.DataFrame(data_records)
                         numeric_cols = df.select_dtypes(include="number").columns.tolist()
                         all_cols = list(df.columns)
-
                         listing_kw = ["list", "show me", "give me", "what are", "display", "which", "who", "all"]
                         force_table = chart_type == "table" or not numeric_cols or (any(w in data_question.lower() for w in listing_kw) and len(all_cols) > 2)
 
@@ -493,7 +417,6 @@ with tab_data:
                             x = chart_config.get("x")
                             y = chart_config.get("y")
                             fig = None
-
                             if chart_type == "bar":
                                 fig = px.bar(df, x=x, y=y, title=data_question, color=x,
                                              color_discrete_sequence=px.colors.qualitative.Vivid)
@@ -511,11 +434,9 @@ with tab_data:
                             elif chart_type == "histogram":
                                 fig = px.histogram(df, x=x, title=data_question,
                                                    color_discrete_sequence=["#6366f1"])
-
                             if fig:
                                 fig.update_layout(**PLOTLY_THEME)
                                 st.plotly_chart(fig, use_container_width=True)
-
                             with st.expander("📋 View as table"):
                                 st.dataframe(df, use_container_width=True, hide_index=True)
 
@@ -537,13 +458,12 @@ with tab_data:
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_quality:
     st.markdown('<div class="section-title">Data Quality Report</div>', unsafe_allow_html=True)
-
     res = requests.get(f"{API_URL}/data-tables")
     if res.status_code != 200 or not res.json().get("tables"):
         st.info("Upload a CSV or Excel file in the Data Analysis tab first.")
     else:
         tables = res.json()["tables"]
-        selected_table = st.selectbox("Select table", [t["table"] for t in tables], label_visibility="visible")
+        selected_table = st.selectbox("Select table", [t["table"] for t in tables])
 
         if st.button("🔍  Run Quality Check", use_container_width=True):
             qres = requests.get(f"{API_URL}/quality/{selected_table}")
@@ -551,7 +471,6 @@ with tab_quality:
                 q = qres.json()
                 score = q.get("health_score", 0)
                 score_emoji = "✅" if score >= 80 else ("⚠️" if score >= 50 else "❌")
-                score_color = "#10b981" if score >= 80 else ("#f59e0b" if score >= 50 else "#ef4444")
 
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric("Health Score", f"{score_emoji} {score}/100")
@@ -642,7 +561,6 @@ with tab_compare:
                         css = "verdict-good" if overall == 100 else ("verdict-warn" if overall >= 90 else "verdict-bad")
                         st.markdown(f"<div class='{css}'>{verdict} — {overall}% overall match</div>", unsafe_allow_html=True)
 
-                        # Row counts
                         st.markdown('<div class="section-title">Row Counts</div>', unsafe_allow_html=True)
                         rc = r["row_counts"]
                         m1, m2, m3 = st.columns(3)
@@ -650,7 +568,6 @@ with tab_compare:
                         m2.metric(f"Rows in {table_b}", f"{rc['table_b']:,}")
                         m3.metric("Difference", rc["difference"], delta_color="off" if rc["difference"] == 0 else "inverse")
 
-                        # Column overlap
                         st.markdown('<div class="section-title">Column Overlap</div>', unsafe_allow_html=True)
                         co = r["column_overlap"]
                         mc1, mc2, mc3 = st.columns(3)
@@ -662,7 +579,6 @@ with tab_compare:
                         if co["only_in_b"]:
                             st.info(f"Only in **{table_b}**: `{'`, `'.join(co['only_in_b'])}`")
 
-                        # Row level
                         st.markdown('<div class="section-title">Row-Level Overlap</div>', unsafe_allow_html=True)
                         rl = r.get("row_level", {})
                         rl1, rl2, rl3, rl4 = st.columns(4)
@@ -671,22 +587,20 @@ with tab_compare:
                         rl3.metric(f"Only in {table_b}", f"{rl.get('rows_only_in_b', 0):,}")
                         rl4.metric("Exact Match %", f"{rl.get('exact_match_pct', 0)}%")
 
-                        # Duplicates
                         dup = r.get("duplicates", {})
                         if dup:
                             st.markdown('<div class="section-title">Duplicate Rows</div>', unsafe_allow_html=True)
                             d1, d2, d3 = st.columns(3)
                             d1.metric(f"Dupes in {table_a}", dup.get("within_a", 0))
                             d2.metric(f"Dupes in {table_b}", dup.get("within_b", 0))
-                            d3.metric("Identical rows across both", dup.get("identical_rows_across_tables", 0))
+                            d3.metric("Identical across both", dup.get("identical_rows_across_tables", 0))
 
-                        # Column value comparison
                         vc = r.get("value_comparison", {})
                         if vc:
                             st.markdown('<div class="section-title">Column-Level Value Comparison</div>', unsafe_allow_html=True)
                             col_rows = [{"Column": col, "Status": s["status"], "Match %": f"{s['match_pct']}%",
                                          "Matches": s["match_count"], "Mismatches": s["mismatch_count"],
-                                         f"Unique in A": s["unique_values_a"], f"Unique in B": s["unique_values_b"]}
+                                         "Unique in A": s["unique_values_a"], "Unique in B": s["unique_values_b"]}
                                         for col, s in vc.items()]
                             st.dataframe(pd.DataFrame(col_rows), use_container_width=True, hide_index=True)
 
@@ -713,7 +627,6 @@ with tab_compare:
                                                 d2c.markdown(f"- `{v}`")
                                         st.markdown("---")
 
-                        # Key-based diff
                         if "key_analysis" in r:
                             st.markdown(f'<div class="section-title">Key-Based Diff — {r["key_analysis"]["key_column"]}</div>', unsafe_allow_html=True)
                             ka = r["key_analysis"]
