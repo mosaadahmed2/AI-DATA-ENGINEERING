@@ -728,9 +728,7 @@ with tab_api:
                                          [""] + list(examples.keys()),
                                          format_func=lambda x: "Choose an example…" if x == "" else x)
         if selected_example:
-            st.info(f"Copy this URL into the API URL field:
-
-`{examples[selected_example]}`")
+            st.info("Copy this URL into the API URL field:\n\n`" + examples[selected_example] + "`")
 
         st.markdown('<div class="section-title">Result Preview</div>', unsafe_allow_html=True)
 
