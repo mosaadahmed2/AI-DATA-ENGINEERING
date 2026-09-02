@@ -3,7 +3,7 @@ import pandas as pd
 import json
 import re
 from typing import Optional
-from database_manager import ingest_file_to_db, get_quality_report
+from database import ingest_file_to_db, get_quality_report
 
 
 def flatten_json(obj, parent_key="", sep="_") -> dict:
