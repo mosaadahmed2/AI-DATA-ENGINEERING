@@ -19,9 +19,9 @@ import io
 
 from rank_bm25 import BM25Okapi
 
-from database_manager import ingest_file_to_db, list_tables, get_schema_prompt, get_quality_report
-from chart_service import answer_data_question
-from compare_service import compare_tables
+from database import ingest_file_to_db, list_tables, get_schema_prompt, get_quality_report
+from chart import answer_data_question
+from compare import compare_tables
 from api_ingestion import fetch_api_data
 
 
