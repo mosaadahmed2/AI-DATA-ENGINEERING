@@ -12,16 +12,17 @@ from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from pypdf import PdfReader
-from typing import List, Optional
+from typing import List
 
 import os
 import io
 
 from rank_bm25 import BM25Okapi
 
-from database import ingest_file_to_db, list_tables, get_schema_prompt, get_quality_report
-from chart import answer_data_question
-from compare import compare_tables
+from database_manager import ingest_file_to_db, list_tables, get_schema_prompt, get_quality_report
+from chart_service import answer_data_question
+from compare_service import compare_tables
+from api_ingestion import fetch_api_data
 
 
 # ── Global NaN/Inf sanitizer ──────────────────────────────────────────────────
@@ -79,7 +80,7 @@ class AnalyzeRequest(BaseModel):
 class CompareRequest(BaseModel):
     table_a: str
     table_b: str
-    key_column: Optional[str] = None
+    key_column: str = None
 
 
 @app.get("/")
@@ -292,6 +293,34 @@ def compare_tables_endpoint(request: CompareRequest):
     result = compare_tables(request.table_a, request.table_b, request.key_column)
     if not result["success"]:
         raise HTTPException(status_code=422, detail=result.get("error", "Comparison failed"))
+    return safe_json_response(result)
+
+
+
+# =========================
+# 🌐 API INGESTION
+# =========================
+
+@app.post("/fetch-api")
+def fetch_api_endpoint(request: APIFetchRequest):
+    if not request.url.startswith("http"):
+        raise HTTPException(status_code=400, detail="URL must start with http:// or https://")
+    result = fetch_api_data(
+        url=request.url,
+        method=request.method,
+        headers=request.headers,
+        auth_type=request.auth_type,
+        auth_token=request.auth_token,
+        api_key_header=request.api_key_header,
+        api_key_value=request.api_key_value,
+        body=request.body,
+        paginate=request.paginate,
+        max_pages=request.max_pages,
+        page_param=request.page_param,
+        table_name=request.table_name,
+    )
+    if not result["success"]:
+        raise HTTPException(status_code=422, detail=result.get("error", "API fetch failed"))
     return safe_json_response(result)
 
 

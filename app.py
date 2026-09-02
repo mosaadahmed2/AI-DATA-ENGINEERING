@@ -218,11 +218,12 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-tab_docs, tab_data, tab_quality, tab_compare = st.tabs([
+tab_docs, tab_data, tab_quality, tab_compare, tab_api = st.tabs([
     "📄  Document Q&A",
     "📊  Data Analysis",
     "🔍  Data Quality",
     "🔄  Compare Tables",
+    "🌐  API Ingestion",
 ])
 
 PLOTLY_THEME = dict(
@@ -659,3 +660,171 @@ with tab_compare:
                         st.error(cres.json().get("detail", "Comparison failed."))
                     else:
                         st.error(cres.text)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — API Ingestion
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_api:
+    st.markdown('<div class="section-title">API Ingestion Pipeline</div>', unsafe_allow_html=True)
+    st.caption("Fetch data from any REST API — auto-flattens JSON, saves to DuckDB, runs quality check, and exports CSV.")
+
+    a_left, a_right = st.columns([1, 1], gap="large")
+
+    with a_left:
+        st.markdown('<div class="section-title">API Configuration</div>', unsafe_allow_html=True)
+
+        api_url = st.text_input("API URL", placeholder="https://api.example.com/v1/data")
+        method = st.selectbox("HTTP Method", ["GET", "POST"])
+
+        st.markdown('<div class="section-title">Authentication</div>', unsafe_allow_html=True)
+        auth_type = st.selectbox("Auth Type", ["none", "bearer", "api_key", "basic"],
+                                  format_func=lambda x: {
+                                      "none": "No Auth",
+                                      "bearer": "Bearer Token",
+                                      "api_key": "API Key Header",
+                                      "basic": "Basic Auth (user:password)"
+                                  }[x])
+
+        auth_token = None
+        api_key_header = None
+        api_key_value = None
+
+        if auth_type == "bearer":
+            auth_token = st.text_input("Bearer Token", type="password", placeholder="eyJ...")
+        elif auth_type == "api_key":
+            api_key_header = st.text_input("Header Name", placeholder="X-API-Key")
+            api_key_value = st.text_input("API Key Value", type="password")
+        elif auth_type == "basic":
+            auth_token = st.text_input("Credentials", type="password", placeholder="username:password")
+
+        st.markdown('<div class="section-title">Pagination</div>', unsafe_allow_html=True)
+        paginate = st.toggle("Enable pagination")
+        max_pages = 5
+        page_param = "page"
+        if paginate:
+            max_pages = st.slider("Max pages to fetch", 1, 20, 5)
+            page_param = st.text_input("Page parameter name", value="page", placeholder="page / offset / cursor")
+
+        st.markdown('<div class="section-title">Table Name (optional)</div>', unsafe_allow_html=True)
+        table_name = st.text_input("Save as table", placeholder="auto-detected from URL")
+
+        if method == "POST":
+            st.markdown('<div class="section-title">Request Body (JSON)</div>', unsafe_allow_html=True)
+            body_str = st.text_area("Body", placeholder='{"key": "value"}', height=100)
+        else:
+            body_str = None
+
+    with a_right:
+        st.markdown('<div class="section-title">Quick Examples</div>', unsafe_allow_html=True)
+        examples = {
+            "JSONPlaceholder — Posts": "https://jsonplaceholder.typicode.com/posts",
+            "JSONPlaceholder — Users": "https://jsonplaceholder.typicode.com/users",
+            "Open Meteo — Weather": "https://api.open-meteo.com/v1/forecast?latitude=39.1&longitude=-84.5&hourly=temperature_2m&forecast_days=3",
+            "REST Countries": "https://restcountries.com/v3.1/all?fields=name,population,region,area",
+            "CoinGecko — Crypto": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&page=1",
+        }
+        selected_example = st.selectbox("Pick an example to auto-fill URL",
+                                         [""] + list(examples.keys()),
+                                         format_func=lambda x: "Choose an example…" if x == "" else x)
+        if selected_example:
+            st.info(f"Copy this URL into the API URL field:
+
+`{examples[selected_example]}`")
+
+        st.markdown('<div class="section-title">Result Preview</div>', unsafe_allow_html=True)
+
+        if st.button("🚀  Fetch & Ingest", use_container_width=True):
+            if not api_url.strip():
+                st.warning("Enter an API URL first.")
+            else:
+                body = None
+                if body_str:
+                    try:
+                        body = json.loads(body_str)
+                    except:
+                        st.error("Request body is not valid JSON.")
+                        st.stop()
+
+                payload = {
+                    "url": api_url.strip(),
+                    "method": method,
+                    "auth_type": auth_type,
+                    "auth_token": auth_token,
+                    "api_key_header": api_key_header,
+                    "api_key_value": api_key_value,
+                    "body": body,
+                    "paginate": paginate,
+                    "max_pages": max_pages,
+                    "page_param": page_param,
+                    "table_name": table_name.strip() if table_name.strip() else None,
+                }
+
+                with st.spinner("Fetching data from API…"):
+                    res = requests.post(f"{API_URL}/fetch-api", json=payload)
+
+                if res.status_code == 200:
+                    r = res.json()
+
+                    # ── Summary metrics ───────────────────────────────────
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("Records Fetched", f"{r['total_records']:,}")
+                    m2.metric("Pages", r["pages_fetched"])
+                    m3.metric("Columns", len(r["columns"]))
+                    q = r.get("quality", {})
+                    score = q.get("health_score", 0) if q else 0
+                    score_emoji = "✅" if score >= 80 else ("⚠️" if score >= 50 else "❌")
+                    m4.metric("Quality Score", f"{score_emoji} {score}/100")
+
+                    if r.get("warnings"):
+                        for w in r["warnings"]:
+                            st.warning(f"⚠️ {w}")
+
+                    st.success(f"✅ Saved as table `{r['table_name']}` — ready to query in Data Analysis tab")
+
+                    # ── Column list ───────────────────────────────────────
+                    st.markdown('<div class="section-title">Columns Detected</div>', unsafe_allow_html=True)
+                    cols_str = "  ".join([f"`{c}`" for c in r["columns"]])
+                    st.markdown(cols_str)
+
+                    # ── Sample data ───────────────────────────────────────
+                    st.markdown('<div class="section-title">Sample Data (first 5 rows)</div>', unsafe_allow_html=True)
+                    sample_df = pd.DataFrame(r["sample"])
+                    st.dataframe(sample_df, use_container_width=True, hide_index=True)
+
+                    # ── Quality report ────────────────────────────────────
+                    if q:
+                        st.markdown('<div class="section-title">Automatic Quality Check</div>', unsafe_allow_html=True)
+                        issues = q.get("issues", [])
+                        if issues:
+                            for issue in issues:
+                                st.warning(f"⚠️ {issue}")
+                        else:
+                            st.success("✅ No quality issues detected")
+
+                        col_data = []
+                        for col_name, stats in q.get("columns", {}).items():
+                            col_data.append({
+                                "Column": col_name,
+                                "Nulls": f"{stats['null_count']} ({stats['null_pct']}%)",
+                                "Unique": stats["unique_count"],
+                                "Duplicates": stats["duplicate_value_count"],
+                                "Issues": ", ".join(stats.get("issues", [])) or "—",
+                            })
+                        if col_data:
+                            st.dataframe(pd.DataFrame(col_data), use_container_width=True, hide_index=True)
+
+                    # ── Download ──────────────────────────────────────────
+                    st.download_button(
+                        "⬇️ Download as CSV",
+                        data=r["csv"],
+                        file_name=f"{r['table_name']}.csv",
+                        mime="text/csv",
+                    )
+
+                    st.info(f"💡 Go to **📊 Data Analysis** tab and ask questions about `{r['table_name']}`")
+
+                elif res.status_code == 422:
+                    st.error(f"❌ {res.json().get('detail', 'Fetch failed.')}")
+                else:
+                    st.error(res.text)
