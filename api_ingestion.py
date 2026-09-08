@@ -220,13 +220,19 @@ def fetch_api_data(
 
 def _url_to_table_name(url: str) -> str:
     """Convert a URL into a clean table name."""
-    # Strip protocol and query params
+    RESERVED = {"all", "select", "table", "from", "where", "order", "group",
+                "by", "join", "index", "values", "set", "create", "drop",
+                "insert", "update", "delete", "view", "with", "as", "on"}
     clean = re.sub(r"https?://", "", url)
     clean = clean.split("?")[0]
-    # Take last meaningful path segment
     parts = [p for p in clean.split("/") if p and not p.isdigit()]
     name = parts[-1] if parts else "api_data"
-    # Sanitize
     name = re.sub(r"[^a-zA-Z0-9_]", "_", name).lower()
     name = re.sub(r"_+", "_", name).strip("_")
+    # If reserved word or empty, use second-to-last path segment or fallback
+    if name in RESERVED or not name:
+        name = parts[-2] if len(parts) >= 2 else "api_data"
+        name = re.sub(r"[^a-zA-Z0-9_]", "_", name).lower()
+        name = re.sub(r"_+", "_", name).strip("_")
+        name = f"{name}_data" if name in RESERVED else name
     return name or "api_data"
