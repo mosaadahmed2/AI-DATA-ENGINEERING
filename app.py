@@ -520,57 +520,62 @@ with tab_quality:
         if st.button("🔍  Run Quality Check", use_container_width=True):
             qres = requests.get(f"{API_URL}/quality/{selected_table}")
             if qres.status_code == 200:
-                q = qres.json()
-                score = q.get("health_score", 0)
-                score_emoji = "✅" if score >= 80 else ("⚠️" if score >= 50 else "❌")
-
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Health Score", f"{score_emoji} {score}/100")
-                c2.metric("Total Rows", f"{q['row_count']:,}")
-                c3.metric("Duplicate Rows", f"{q['duplicate_rows']:,}",
-                          delta=f"-{q['duplicate_rows']}" if q['duplicate_rows'] > 0 else None,
-                          delta_color="inverse")
-                c4.metric("Columns", len(q.get("columns", {})))
-
-                issues = q.get("issues", [])
-                if issues:
-                    st.markdown('<div class="section-title">Issues Found</div>', unsafe_allow_html=True)
-                    for issue in issues:
-                        st.warning(f"⚠️ {issue}")
-                else:
-                    st.success("✅ No issues detected — data looks clean!")
-
-                st.markdown('<div class="section-title">Column Profile</div>', unsafe_allow_html=True)
-                col_data = []
-                for col_name, stats in q.get("columns", {}).items():
-                    top_dupes = stats.get("top_duplicate_values", {})
-                    dupe_preview = ", ".join([f"{k} (×{v})" for k, v in list(top_dupes.items())[:3]]) if top_dupes else "—"
-                    col_data.append({
-                        "Column": col_name,
-                        "Nulls": f"{stats['null_count']} ({stats['null_pct']}%)",
-                        "Unique": stats["unique_count"],
-                        "Duplicates": stats["duplicate_value_count"],
-                        "Top Duplicates": dupe_preview,
-                        "Issues": ", ".join(stats.get("issues", [])) or "—",
-                    })
-                st.dataframe(pd.DataFrame(col_data), use_container_width=True, hide_index=True)
-
-                st.markdown('<div class="section-title">Duplicate Value Drilldown</div>', unsafe_allow_html=True)
-                cols_with_dupes = {k: v["top_duplicate_values"] for k, v in q.get("columns", {}).items() if v.get("top_duplicate_values")}
-                if cols_with_dupes:
-                    selected_col = st.selectbox("Column to inspect", list(cols_with_dupes.keys()))
-                    dupe_df = pd.DataFrame(list(cols_with_dupes[selected_col].items()), columns=["Value", "Count"])
-                    fig = px.bar(dupe_df, x="Value", y="Count", title=f"Duplicate values — {selected_col}",
-                                 color="Value", color_discrete_sequence=px.colors.qualitative.Vivid)
-                    fig.update_layout(**PLOTLY_THEME)
-                    fig.update_layout(showlegend=False, height=320)
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("No duplicate values found.")
+                st.session_state["quality_report"] = qres.json()
+                st.session_state["quality_table"] = selected_table
             elif qres.status_code == 404:
                 st.error("Table not found.")
             else:
                 st.error("Could not load quality report.")
+
+        # Render from session state so it persists when selectbox changes
+        if st.session_state.get("quality_report") and st.session_state.get("quality_table") == selected_table:
+            q = st.session_state["quality_report"]
+            score = q.get("health_score", 0)
+            score_emoji = "✅" if score >= 80 else ("⚠️" if score >= 50 else "❌")
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Health Score", f"{score_emoji} {score}/100")
+            c2.metric("Total Rows", f"{q['row_count']:,}")
+            c3.metric("Duplicate Rows", f"{q['duplicate_rows']:,}",
+                      delta=f"-{q['duplicate_rows']}" if q['duplicate_rows'] > 0 else None,
+                      delta_color="inverse")
+            c4.metric("Columns", len(q.get("columns", {})))
+
+            issues = q.get("issues", [])
+            if issues:
+                st.markdown('<div class="section-title">Issues Found</div>', unsafe_allow_html=True)
+                for issue in issues:
+                    st.warning(f"⚠️ {issue}")
+            else:
+                st.success("✅ No issues detected — data looks clean!")
+
+            st.markdown('<div class="section-title">Column Profile</div>', unsafe_allow_html=True)
+            col_data = []
+            for col_name, stats in q.get("columns", {}).items():
+                top_dupes = stats.get("top_duplicate_values", {})
+                dupe_preview = ", ".join([f"{k} (×{v})" for k, v in list(top_dupes.items())[:3]]) if top_dupes else "—"
+                col_data.append({
+                    "Column": col_name,
+                    "Nulls": f"{stats['null_count']} ({stats['null_pct']}%)",
+                    "Unique": stats["unique_count"],
+                    "Duplicates": stats["duplicate_value_count"],
+                    "Top Duplicates": dupe_preview,
+                    "Issues": ", ".join(stats.get("issues", [])) or "—",
+                })
+            st.dataframe(pd.DataFrame(col_data), use_container_width=True, hide_index=True)
+
+            st.markdown('<div class="section-title">Duplicate Value Drilldown</div>', unsafe_allow_html=True)
+            cols_with_dupes = {k: v["top_duplicate_values"] for k, v in q.get("columns", {}).items() if v.get("top_duplicate_values")}
+            if cols_with_dupes:
+                selected_col = st.selectbox("Column to inspect", list(cols_with_dupes.keys()), key="dupe_col_select")
+                dupe_df = pd.DataFrame(list(cols_with_dupes[selected_col].items()), columns=["Value", "Count"])
+                fig = px.bar(dupe_df, x="Value", y="Count", title=f"Duplicate values — {selected_col}",
+                             color="Value", color_discrete_sequence=px.colors.qualitative.Vivid)
+                fig.update_layout(**PLOTLY_THEME)
+                fig.update_layout(showlegend=False, height=320)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No duplicate values found.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
