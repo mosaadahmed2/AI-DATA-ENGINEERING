@@ -202,6 +202,35 @@ st.markdown("""
     hr { border-color: #f1f5f9 !important; }
     .stSpinner > div { border-top-color: #6366f1 !important; }
     .stCodeBlock { border-radius: 8px !important; border: 1px solid #e2e8f0 !important; }
+
+    /* ── Issue warning boxes ── */
+    div[data-testid="stAlert"] {
+        border-radius: 8px !important;
+        border: 1px solid #fde68a !important;
+        border-left: 4px solid #f59e0b !important;
+        background: #fffbeb !important;
+        padding: 0.6rem 1rem !important;
+        margin-bottom: 0.4rem !important;
+    }
+    div[data-testid="stAlert"] p {
+        color: #92400e !important;
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+        margin: 0 !important;
+    }
+    div[data-testid="stAlert"][data-baseweb="notification"] svg {
+        color: #f59e0b !important;
+    }
+
+    /* ── Success alert ── */
+    div[data-testid="stAlert"].st-success {
+        border-color: #bbf7d0 !important;
+        border-left-color: #10b981 !important;
+        background: #f0fdf4 !important;
+    }
+
+    /* ── Toggle switch ── */
+    div[data-testid="stToggle"] label { color: #475569 !important; font-size: 0.85rem !important; }
 </style>
 """, unsafe_allow_html=True)
 
