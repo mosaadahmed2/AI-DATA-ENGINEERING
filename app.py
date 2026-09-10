@@ -231,6 +231,26 @@ st.markdown("""
 
     /* ── Toggle switch ── */
     div[data-testid="stToggle"] label { color: #475569 !important; font-size: 0.85rem !important; }
+
+    /* ── Selectbox ── */
+    div[data-baseweb="select"] > div {
+        background: #fff !important;
+        border: 1.5px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        min-height: 42px !important;
+    }
+    div[data-baseweb="select"] > div:hover {
+        border-color: #94a3b8 !important;
+    }
+    div[data-baseweb="select"] > div:focus-within {
+        border-color: #6366f1 !important;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1) !important;
+    }
+    div[data-baseweb="select"] span {
+        color: #1e293b !important;
+        font-size: 0.9rem !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
