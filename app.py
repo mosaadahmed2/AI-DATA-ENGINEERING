@@ -20,7 +20,8 @@ st.markdown("""
     * { font-family: 'Inter', sans-serif; }
 
     .stApp { background: #f8fafc; }
-    .block-container { padding: 1.5rem 2rem 2rem; max-width: 1400px; }
+    .block-container { padding: 1.5rem 2.5rem 2rem; max-width: 1400px; }
+    div[data-testid="column"] { padding: 0 0.75rem; }
     #MainMenu, footer, header { visibility: hidden; }
 
     /* ── Hero ── */
@@ -78,7 +79,8 @@ st.markdown("""
     }
     div[data-testid="stTabs"] button:hover { color: #6366f1; background: #f5f3ff; }
     div[data-testid="stTabs"] button[aria-selected="true"] { background: #6366f1 !important; color: #fff !important; }
-    div[data-testid="stTabs"] [role="tabpanel"] { padding: 0; }
+    div[data-testid="stTabs"] [role="tabpanel"] { padding: 1.5rem 0.5rem 0; }
+    div[data-testid="stTabs"] [data-baseweb="tab-border"] { margin-top: 4px; }
 
     /* ── Metrics ── */
     div[data-testid="stMetric"] {
@@ -728,7 +730,7 @@ with tab_api:
                                          [""] + list(examples.keys()),
                                          format_func=lambda x: "Choose an example…" if x == "" else x)
         if selected_example:
-            st.info("Copy this URL into the API URL field:\n\n`" + examples[selected_example] + "`")
+            st.info(f"Copy this URL into the API URL field:`{examples[selected_example]}`")
 
         st.markdown('<div class="section-title">Result Preview</div>', unsafe_allow_html=True)
 
