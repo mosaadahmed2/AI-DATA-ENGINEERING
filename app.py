@@ -594,12 +594,12 @@ with tab_compare:
             st.warning("Need at least 2 tables to compare.")
         else:
             c1, c2 = st.columns(2)
-            table_a = c1.selectbox("Table A", tables, index=0)
-            table_b = c2.selectbox("Table B", tables, index=min(1, len(tables)-1))
+            table_a = c1.selectbox("Table A", tables, index=0, key="compare_table_a")
+            table_b = c2.selectbox("Table B", tables, index=min(1, len(tables)-1), key="compare_table_b")
 
             all_tables = {t["table"]: t["columns"] for t in res.json().get("tables", [])}
             shared_cols = sorted(set(all_tables.get(table_a, [])) & set(all_tables.get(table_b, [])))
-            key_column = st.selectbox("Key column (optional)", ["None"] + shared_cols)
+            key_column = st.selectbox("Key column (optional)", ["None"] + shared_cols, key="compare_key_col")
             key_column = None if key_column == "None" else key_column
 
             if st.button("🔄  Run Comparison", use_container_width=True):
@@ -610,150 +610,139 @@ with tab_compare:
                         cres = requests.post(f"{API_URL}/compare", json={
                             "table_a": table_a, "table_b": table_b, "key_column": key_column if key_column else ""
                         })
-
                     if cres.status_code == 200:
-                        r = cres.json()
-                        overall = r.get("overall_match_pct", 0)
-                        verdict = r.get("verdict", "")
-                        css = "verdict-good" if overall == 100 else ("verdict-warn" if overall >= 90 else "verdict-bad")
-                        st.markdown(f"<div class='{css}'>{verdict} — {overall}% overall match</div>", unsafe_allow_html=True)
-
-                        st.markdown('<div class="section-title">Row Counts</div>', unsafe_allow_html=True)
-                        rc = r["row_counts"]
-                        m1, m2, m3 = st.columns(3)
-                        m1.metric(f"Rows in {table_a}", f"{rc['table_a']:,}")
-                        m2.metric(f"Rows in {table_b}", f"{rc['table_b']:,}")
-                        m3.metric("Difference", rc["difference"], delta_color="off" if rc["difference"] == 0 else "inverse")
-
-                        st.markdown('<div class="section-title">Column Overlap</div>', unsafe_allow_html=True)
-                        co = r["column_overlap"]
-                        mc1, mc2, mc3 = st.columns(3)
-                        mc1.metric("Shared Columns", co["shared_count"])
-                        mc2.metric(f"Only in {table_a}", len(co["only_in_a"]))
-                        mc3.metric(f"Only in {table_b}", len(co["only_in_b"]))
-                        if co["only_in_a"]:
-                            st.info(f"Only in **{table_a}**: `{'`, `'.join(co['only_in_a'])}`")
-                        if co["only_in_b"]:
-                            st.info(f"Only in **{table_b}**: `{'`, `'.join(co['only_in_b'])}`")
-
-                        st.markdown('<div class="section-title">Row-Level Overlap</div>', unsafe_allow_html=True)
-                        rl = r.get("row_level", {})
-                        rl1, rl2, rl3, rl4 = st.columns(4)
-                        rl1.metric("Rows in Both", f"{rl.get('rows_in_both', 0):,}")
-                        rl2.metric(f"Only in {table_a}", f"{rl.get('rows_only_in_a', 0):,}")
-                        rl3.metric(f"Only in {table_b}", f"{rl.get('rows_only_in_b', 0):,}")
-                        rl4.metric("Exact Match %", f"{rl.get('exact_match_pct', 0)}%")
-
-                        # ── Record viewer ────────────────────────────────────
-                        st.markdown('<div class="section-title">Record Explorer</div>', unsafe_allow_html=True)
-                        rl = r.get("row_level", {})
-                        view_options = []
-                        if rl.get("rows_in_both", 0) > 0:
-                            view_options.append(f"Common records ({rl['rows_in_both']} rows)")
-                        if rl.get("rows_only_in_a", 0) > 0:
-                            view_options.append(f"Only in {table_a} ({rl['rows_only_in_a']} rows)")
-                        if rl.get("rows_only_in_b", 0) > 0:
-                            view_options.append(f"Only in {table_b} ({rl['rows_only_in_b']} rows)")
-
-                        if view_options:
-                            selected_view = st.selectbox(
-                                "Select records to view",
-                                view_options,
-                                index=0,
-                                key="record_view_select"
-                            )
-
-                            if "Common records" in selected_view:
-                                records = rl.get("common_records", [])
-                            elif f"Only in {table_a}" in selected_view:
-                                records = rl.get("records_only_in_a", [])
-                            else:
-                                records = rl.get("records_only_in_b", [])
-
-                            if records:
-                                st.dataframe(
-                                    pd.DataFrame(records),
-                                    use_container_width=True,
-                                    height=350,
-                                    hide_index=True,
-                                )
-                            else:
-                                st.info("No records in this category.")
-                        else:
-                            st.info("No common or exclusive records found on shared columns.")
-
-                        dup = r.get("duplicates", {})
-                        if dup:
-                            st.markdown('<div class="section-title">Duplicate Rows</div>', unsafe_allow_html=True)
-                            d1, d2, d3 = st.columns(3)
-                            d1.metric(f"Dupes in {table_a}", dup.get("within_a", 0))
-                            d2.metric(f"Dupes in {table_b}", dup.get("within_b", 0))
-                            d3.metric("Identical across both", dup.get("identical_rows_across_tables", 0))
-
-                        vc = r.get("value_comparison", {})
-                        if vc:
-                            st.markdown('<div class="section-title">Column-Level Value Comparison</div>', unsafe_allow_html=True)
-                            col_rows = [{"Column": col, "Status": s["status"], "Match %": f"{s['match_pct']}%",
-                                         "Matches": s["match_count"], "Mismatches": s["mismatch_count"],
-                                         "Unique in A": s["unique_values_a"], "Unique in B": s["unique_values_b"]}
-                                        for col, s in vc.items()]
-                            st.dataframe(pd.DataFrame(col_rows), use_container_width=True, hide_index=True)
-
-                            chart_df = pd.DataFrame([{"Column": col, "Match %": s["match_pct"]} for col, s in vc.items()])
-                            fig = px.bar(chart_df, x="Column", y="Match %", title="Value match % per column",
-                                         color="Match %", color_continuous_scale=["#ef4444", "#f59e0b", "#10b981"],
-                                         range_color=[0, 100])
-                            fig.update_layout(**PLOTLY_THEME)
-                            fig.update_layout(height=320)
-                            st.plotly_chart(fig, use_container_width=True)
-
-                            with st.expander("🔍 Value differences per column"):
-                                for col, stats in vc.items():
-                                    if stats["values_only_in_a"] or stats["values_only_in_b"]:
-                                        st.markdown(f"**`{col}`**")
-                                        d1c, d2c = st.columns(2)
-                                        if stats["values_only_in_a"]:
-                                            d1c.markdown(f"Only in **{table_a}**:")
-                                            for v in stats["values_only_in_a"][:10]:
-                                                d1c.markdown(f"- `{v}`")
-                                        if stats["values_only_in_b"]:
-                                            d2c.markdown(f"Only in **{table_b}**:")
-                                            for v in stats["values_only_in_b"][:10]:
-                                                d2c.markdown(f"- `{v}`")
-                                        st.markdown("---")
-
-                        if "key_analysis" in r:
-                            st.markdown(f'<div class="section-title">Key-Based Diff — {r["key_analysis"]["key_column"]}</div>', unsafe_allow_html=True)
-                            ka = r["key_analysis"]
-                            k1, k2, k3, k4 = st.columns(4)
-                            k1.metric("Common Keys", f"{ka['common_keys']:,}")
-                            k2.metric(f"Only in {table_a}", len(ka["keys_only_in_a"]))
-                            k3.metric(f"Only in {table_b}", len(ka["keys_only_in_b"]))
-                            k4.metric("Rows with Diffs", ka["rows_with_differences"])
-
-                            if ka["keys_only_in_a"]:
-                                st.warning(f"Keys only in **{table_a}**: `{', '.join(ka['keys_only_in_a'][:10])}`")
-                            if ka["keys_only_in_b"]:
-                                st.warning(f"Keys only in **{table_b}**: `{', '.join(ka['keys_only_in_b'][:10])}`")
-
-                            if ka["mismatch_details"]:
-                                with st.expander(f"🔍 {ka['rows_with_differences']} rows differ"):
-                                    for m in ka["mismatch_details"][:20]:
-                                        st.markdown(f"**Key `{m['key']}`** — changed in: `{'`, `'.join(m['differing_columns'])}`")
-                                        diff_rows = [{"Column": col, f"{table_a}": m["values_a"][col], f"{table_b}": m["values_b"][col]}
-                                                     for col in m["differing_columns"]]
-                                        st.dataframe(pd.DataFrame(diff_rows), use_container_width=True, hide_index=True)
-                                        st.markdown("---")
-                            else:
-                                st.success("✅ No row-level differences on common keys.")
-
-                        st.download_button("⬇️ Download report JSON", json.dumps(r, indent=2),
-                                           f"compare_{table_a}_vs_{table_b}.json", "application/json")
-
+                        st.session_state["compare_result"] = cres.json()
+                        st.session_state["compare_table_a"] = table_a
+                        st.session_state["compare_table_b"] = table_b
                     elif cres.status_code == 422:
                         st.error(cres.json().get("detail", "Comparison failed."))
                     else:
                         st.error(cres.text)
+
+            # Render from session state
+            if (st.session_state.get("compare_result")
+                    and st.session_state.get("compare_table_a") == table_a
+                    and st.session_state.get("compare_table_b") == table_b):
+                r = st.session_state["compare_result"]
+                overall = r.get("overall_match_pct", 0)
+                verdict = r.get("verdict", "")
+                css = "verdict-good" if overall == 100 else ("verdict-warn" if overall >= 90 else "verdict-bad")
+                st.markdown(f"<div class='{css}'>{verdict} — {overall}% overall match</div>", unsafe_allow_html=True)
+
+                st.markdown('<div class="section-title">Row Counts</div>', unsafe_allow_html=True)
+                rc = r["row_counts"]
+                m1, m2, m3 = st.columns(3)
+                m1.metric(f"Rows in {table_a}", f"{rc['table_a']:,}")
+                m2.metric(f"Rows in {table_b}", f"{rc['table_b']:,}")
+                m3.metric("Difference", rc["difference"], delta_color="off" if rc["difference"] == 0 else "inverse")
+
+                st.markdown('<div class="section-title">Column Overlap</div>', unsafe_allow_html=True)
+                co = r["column_overlap"]
+                mc1, mc2, mc3 = st.columns(3)
+                mc1.metric("Shared Columns", co["shared_count"])
+                mc2.metric(f"Only in {table_a}", len(co["only_in_a"]))
+                mc3.metric(f"Only in {table_b}", len(co["only_in_b"]))
+                if co["only_in_a"]:
+                    st.info(f"Only in **{table_a}**: `{'`, `'.join(co['only_in_a'])}`")
+                if co["only_in_b"]:
+                    st.info(f"Only in **{table_b}**: `{'`, `'.join(co['only_in_b'])}`")
+
+                st.markdown('<div class="section-title">Row-Level Overlap</div>', unsafe_allow_html=True)
+                rl = r.get("row_level", {})
+                rl1, rl2, rl3, rl4 = st.columns(4)
+                rl1.metric("Rows in Both", f"{rl.get('rows_in_both', 0):,}")
+                rl2.metric(f"Only in {table_a}", f"{rl.get('rows_only_in_a', 0):,}")
+                rl3.metric(f"Only in {table_b}", f"{rl.get('rows_only_in_b', 0):,}")
+                rl4.metric("Exact Match %", f"{rl.get('exact_match_pct', 0)}%")
+
+                # ── Record Explorer ───────────────────────────────────────
+                st.markdown('<div class="section-title">Record Explorer</div>', unsafe_allow_html=True)
+                view_options = []
+                view_options.append(f"Common records ({rl.get('rows_in_both', 0)} rows)")
+                view_options.append(f"Only in {table_a} ({rl.get('rows_only_in_a', 0)} rows)")
+                view_options.append(f"Only in {table_b} ({rl.get('rows_only_in_b', 0)} rows)")
+
+                selected_view = st.selectbox("Select records to view", view_options, index=0, key="record_view_select")
+
+                if "Common" in selected_view:
+                    records = rl.get("common_records", [])
+                elif table_a in selected_view:
+                    records = rl.get("records_only_in_a", [])
+                else:
+                    records = rl.get("records_only_in_b", [])
+
+                if records:
+                    st.dataframe(pd.DataFrame(records), use_container_width=True, height=350, hide_index=True)
+                else:
+                    st.info("No records in this category.")
+
+                dup = r.get("duplicates", {})
+                if dup:
+                    st.markdown('<div class="section-title">Duplicate Rows</div>', unsafe_allow_html=True)
+                    d1, d2, d3 = st.columns(3)
+                    d1.metric(f"Dupes in {table_a}", dup.get("within_a", 0))
+                    d2.metric(f"Dupes in {table_b}", dup.get("within_b", 0))
+                    d3.metric("Identical across both", dup.get("identical_rows_across_tables", 0))
+
+                vc = r.get("value_comparison", {})
+                if vc:
+                    st.markdown('<div class="section-title">Column-Level Value Comparison</div>', unsafe_allow_html=True)
+                    col_rows = [{"Column": col, "Status": s["status"], "Match %": f"{s['match_pct']}%",
+                                 "Matches": s["match_count"], "Mismatches": s["mismatch_count"],
+                                 "Unique in A": s["unique_values_a"], "Unique in B": s["unique_values_b"]}
+                                for col, s in vc.items()]
+                    st.dataframe(pd.DataFrame(col_rows), use_container_width=True, hide_index=True)
+
+                    chart_df = pd.DataFrame([{"Column": col, "Match %": s["match_pct"]} for col, s in vc.items()])
+                    fig = px.bar(chart_df, x="Column", y="Match %", title="Value match % per column",
+                                 color="Match %", color_continuous_scale=["#ef4444", "#f59e0b", "#10b981"],
+                                 range_color=[0, 100])
+                    fig.update_layout(**PLOTLY_THEME)
+                    fig.update_layout(height=320)
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    with st.expander("🔍 Value differences per column"):
+                        for col, stats in vc.items():
+                            if stats["values_only_in_a"] or stats["values_only_in_b"]:
+                                st.markdown(f"**`{col}`**")
+                                d1c, d2c = st.columns(2)
+                                if stats["values_only_in_a"]:
+                                    d1c.markdown(f"Only in **{table_a}**:")
+                                    for v in stats["values_only_in_a"][:10]:
+                                        d1c.markdown(f"- `{v}`")
+                                if stats["values_only_in_b"]:
+                                    d2c.markdown(f"Only in **{table_b}**:")
+                                    for v in stats["values_only_in_b"][:10]:
+                                        d2c.markdown(f"- `{v}`")
+                                st.markdown("---")
+
+                if "key_analysis" in r:
+                    st.markdown(f'<div class="section-title">Key-Based Diff — {r["key_analysis"]["key_column"]}</div>', unsafe_allow_html=True)
+                    ka = r["key_analysis"]
+                    k1, k2, k3, k4 = st.columns(4)
+                    k1.metric("Common Keys", f"{ka['common_keys']:,}")
+                    k2.metric(f"Only in {table_a}", len(ka["keys_only_in_a"]))
+                    k3.metric(f"Only in {table_b}", len(ka["keys_only_in_b"]))
+                    k4.metric("Rows with Diffs", ka["rows_with_differences"])
+
+                    if ka["keys_only_in_a"]:
+                        st.warning(f"Keys only in **{table_a}**: `{', '.join(ka['keys_only_in_a'][:10])}`")
+                    if ka["keys_only_in_b"]:
+                        st.warning(f"Keys only in **{table_b}**: `{', '.join(ka['keys_only_in_b'][:10])}`")
+
+                    if ka["mismatch_details"]:
+                        with st.expander(f"🔍 {ka['rows_with_differences']} rows differ"):
+                            for m in ka["mismatch_details"][:20]:
+                                st.markdown(f"**Key `{m['key']}`** — changed in: `{'`, `'.join(m['differing_columns'])}`")
+                                diff_rows = [{"Column": col, f"{table_a}": m["values_a"][col], f"{table_b}": m["values_b"][col]}
+                                             for col in m["differing_columns"]]
+                                st.dataframe(pd.DataFrame(diff_rows), use_container_width=True, hide_index=True)
+                                st.markdown("---")
+                    else:
+                        st.success("✅ No row-level differences on common keys.")
+
+                st.download_button("⬇️ Download report JSON", json.dumps(r, indent=2),
+                                   f"compare_{table_a}_vs_{table_b}.json", "application/json")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
