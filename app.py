@@ -608,7 +608,7 @@ with tab_compare:
                 else:
                     with st.spinner("Comparing tables…"):
                         cres = requests.post(f"{API_URL}/compare", json={
-                            "table_a": table_a, "table_b": table_b, "key_column": key_column
+                            "table_a": table_a, "table_b": table_b, "key_column": key_column if key_column else ""
                         })
 
                     if cres.status_code == 200:
