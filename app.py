@@ -644,6 +644,44 @@ with tab_compare:
                         rl3.metric(f"Only in {table_b}", f"{rl.get('rows_only_in_b', 0):,}")
                         rl4.metric("Exact Match %", f"{rl.get('exact_match_pct', 0)}%")
 
+                        # ── Record viewer ────────────────────────────────────
+                        st.markdown('<div class="section-title">Record Explorer</div>', unsafe_allow_html=True)
+                        rl = r.get("row_level", {})
+                        view_options = []
+                        if rl.get("rows_in_both", 0) > 0:
+                            view_options.append(f"Common records ({rl['rows_in_both']} rows)")
+                        if rl.get("rows_only_in_a", 0) > 0:
+                            view_options.append(f"Only in {table_a} ({rl['rows_only_in_a']} rows)")
+                        if rl.get("rows_only_in_b", 0) > 0:
+                            view_options.append(f"Only in {table_b} ({rl['rows_only_in_b']} rows)")
+
+                        if view_options:
+                            selected_view = st.selectbox(
+                                "Select records to view",
+                                view_options,
+                                index=0,
+                                key="record_view_select"
+                            )
+
+                            if "Common records" in selected_view:
+                                records = rl.get("common_records", [])
+                            elif f"Only in {table_a}" in selected_view:
+                                records = rl.get("records_only_in_a", [])
+                            else:
+                                records = rl.get("records_only_in_b", [])
+
+                            if records:
+                                st.dataframe(
+                                    pd.DataFrame(records),
+                                    use_container_width=True,
+                                    height=350,
+                                    hide_index=True,
+                                )
+                            else:
+                                st.info("No records in this category.")
+                        else:
+                            st.info("No common or exclusive records found on shared columns.")
+
                         dup = r.get("duplicates", {})
                         if dup:
                             st.markdown('<div class="section-title">Duplicate Rows</div>', unsafe_allow_html=True)

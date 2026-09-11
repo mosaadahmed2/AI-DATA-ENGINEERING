@@ -71,18 +71,25 @@ def compare_tables(table_a: str, table_b: str, key_column: str = None) -> dict:
     rows_only_in_a = len(df_a_shared) - rows_in_both
     rows_only_in_b = len(df_b_shared) - rows_in_both
 
+    # Common records (exist in both)
+    common_records = merged.head(200).to_dict(orient="records") if rows_in_both > 0 else []
+
+    # Records only in A
+    only_in_a_df = df_a_shared.merge(df_b_shared, on=shared, how="left", indicator=True)
+    only_in_a_df = only_in_a_df[only_in_a_df["_merge"] == "left_only"].drop("_merge", axis=1)
+
+    # Records only in B
+    only_in_b_df = df_b_shared.merge(df_a_shared, on=shared, how="left", indicator=True)
+    only_in_b_df = only_in_b_df[only_in_b_df["_merge"] == "left_only"].drop("_merge", axis=1)
+
     result["row_level"] = {
         "rows_in_both": rows_in_both,
         "rows_only_in_a": rows_only_in_a,
         "rows_only_in_b": rows_only_in_b,
         "exact_match_pct": round(rows_in_both / max(len(df_a), len(df_b)) * 100, 1) if max(len(df_a), len(df_b)) > 0 else 0,
-    }
-
-    # ── Duplicate rows within each table ─────────────────────────────────────
-    result["duplicates"] = {
-        "within_a": int(df_a[shared].astype(str).duplicated().sum()),
-        "within_b": int(df_b[shared].astype(str).duplicated().sum()),
-        "identical_rows_across_tables": rows_in_both,
+        "common_records": common_records,
+        "records_only_in_a": only_in_a_df.head(200).to_dict(orient="records"),
+        "records_only_in_b": only_in_b_df.head(200).to_dict(orient="records"),
     }
 
     # ── Per-column value comparison on shared cols ────────────────────────────
@@ -130,17 +137,10 @@ def compare_tables(table_a: str, table_b: str, key_column: str = None) -> dict:
 
         # For common keys, find rows where any value differs
         mismatches = []
-        for key in list(common_keys)[:100]:
-            row_a = df_a_keyed.loc[key]
-            row_b = df_b_keyed.loc[key]
-
-            # Skip if key returns multiple rows (duplicate keys)
-            if isinstance(row_a, pd.DataFrame) or isinstance(row_b, pd.DataFrame):
-                continue
-
-            row_a = row_a.astype(str)
-            row_b = row_b.astype(str)
-            diff_cols = [c for c in row_a.index if str(row_a[c]) != str(row_b[c])]
+        for key in list(common_keys)[:100]:  # cap at 100 for performance
+            row_a = df_a_keyed.loc[key].astype(str)
+            row_b = df_b_keyed.loc[key].astype(str)
+            diff_cols = [c for c in row_a.index if row_a[c] != row_b[c]]
             if diff_cols:
                 mismatches.append({
                     "key": str(key),
