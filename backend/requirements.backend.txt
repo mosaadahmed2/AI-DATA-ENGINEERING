@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+pandas
+openpyxl
+faiss-cpu
+numpy
+sentence-transformers
+langchain
+langchain-text-splitters
+pypdf
+rank-bm25
+groq
+python-dotenv
+python-multipart
+duckdb
+requests

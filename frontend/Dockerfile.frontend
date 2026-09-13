@@ -1,0 +1,18 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.frontend.txt .
+RUN pip install --no-cache-dir -r requirements.frontend.txt
+
+COPY app.py .
+COPY entrypoint.frontend.sh .
+COPY .streamlit/ .streamlit/
+
+RUN chmod +x entrypoint.frontend.sh
+
+EXPOSE 8501
+
+ENTRYPOINT ["./entrypoint.frontend.sh"]
